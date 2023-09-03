@@ -1,36 +1,25 @@
 use bevy::ui::ContentSize;
 use bevy::{math::vec2, prelude::*};
+use bevy_egui::{
+    egui::{self, Align2, Color32, FontData, FontDefinitions, FontFamily, FontId, RichText},
+    EguiContexts, EguiSettings,
+};
 use bevy_turborand::DelegatedRng;
 use bevy_turborand::{GlobalRng, RngComponent};
 use std::time::Duration;
 
-use super::{
-    components::{
-        AnimationIndices, AnimationTimer, ExampleGameText, Paused, PausedText, Player, Pos, Vel,
-    },
-    effects::Flick,
+use crate::GameState;
+
+use super::components::{
+    AnimationIndices, AnimationTimer, ExampleGameText, Paused, PausedText, Player, Pos, Vel,
 };
 
-pub fn is_paused(paused: Res<Paused>) -> bool {
-    paused.0
-}
-
-pub fn pause_controls(
+pub fn toggle_edit_mode(
+    mut next_state: ResMut<NextState<GameState>>,
     keyboard: Res<Input<KeyCode>>,
-    mut paused: ResMut<Paused>,
-    mut pause_texts: Query<(&mut Visibility, With<PausedText>)>,
 ) {
-    if keyboard.just_pressed(KeyCode::P) {
-        paused.0 = !paused.0;
-    }
-
-    if paused.is_changed() {
-        for (mut vis, _) in pause_texts.iter_mut() {
-            match paused.0 {
-                false => *vis = Visibility::Hidden,
-                true => *vis = Visibility::Inherited,
-            }
-        }
+    if keyboard.just_released(KeyCode::Space) {
+        next_state.set(GameState::InEditor);
     }
 }
 
@@ -45,124 +34,20 @@ pub fn game_keys(
         &mut AnimationTimer,
     )>,
 ) {
-    let mut direction = Vec2::ZERO;
-
-    if keyboard.any_pressed([KeyCode::Left, KeyCode::A]) {
-        direction.x -= 1.0;
-    }
-    if keyboard.any_pressed([KeyCode::Right, KeyCode::D]) {
-        direction.x += 1.0;
-    }
-    if keyboard.any_pressed([KeyCode::Up, KeyCode::W]) {
-        direction.y += 1.0;
-    }
-    if keyboard.any_pressed([KeyCode::Down, KeyCode::S]) {
-        direction.y -= 1.0;
-    }
-
-    let move_speed = 1.0;
-    let move_delta = (direction * move_speed).extend(0.0);
-
-    for (_, mut transform, mut indices, mut sprite, mut timer) in player.iter_mut() {
-        if direction == Vec2::ZERO {
-            // update animation
-            indices.first = 0;
-            indices.last = 1;
-            sprite.index = usize::clamp(sprite.index, indices.first, indices.last);
-            timer.0.set_duration(Duration::from_millis(500));
-            continue;
-        }
-
-        transform.translation += move_delta;
-
-        // update animation
-        indices.first = 2;
-        indices.last = 3;
-        sprite.index = usize::clamp(sprite.index, indices.first, indices.last);
-        if move_delta.x < 0.0 {
-            sprite.flip_x = true;
-        } else if move_delta.x > 0.0 {
-            sprite.flip_x = false;
-        }
-        timer.0.set_duration(Duration::from_millis(200));
-    }
 }
 
-pub fn example_setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut global_rng: ResMut<GlobalRng>,
-) {
-    let mut rng = RngComponent::from(&mut global_rng);
-    // Text with multiple sections
-    commands.spawn((
-        // Create a TextBundle that has a Text with a list of sections.
-        TextBundle::from_sections([TextSection::new(
-            "~In Game~",
-            TextStyle {
-                font: asset_server.load("fonts/visitor.ttf"),
-                font_size: 40.0,
-                color: Color::WHITE,
-            },
-        )])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(5.0),
-            left: Val::Px(15.0),
-            ..default()
-        }),
-        Vel(vec2(1.0 + rng.f32() * 1.5, 1.0 + rng.f32() * 1.5)),
-        Pos(vec2(5.0, 15.0)),
-        ExampleGameText,
-        Flick {
-            duration: Timer::from_seconds(60.0, TimerMode::Once),
-            switch_timer: Timer::from_seconds(0.2, TimerMode::Repeating),
-        },
-    ));
-    commands.spawn((
-        // Create a TextBundle that has a Text with a list of sections.
-        TextBundle::from_sections([TextSection::new(
-            "Paused",
-            TextStyle {
-                font: asset_server.load("fonts/visitor.ttf"),
-                font_size: 20.0,
-                color: Color::WHITE,
-            },
-        )])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            left: Val::Px(0.0),
-            right: Val::Px(0.0),
-            ..default()
-        }),
-        Vel(vec2(1.0, 1.0)),
-        Pos(vec2(5.0, 15.0)),
-        ExampleGameText,
-        PausedText,
-    ));
-}
-
-pub fn setup_player(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
-) {
-    let idle_handle = asset_server.load("textures/chars/char_atlas.png");
-    let idle_atlas =
-        TextureAtlas::from_grid(idle_handle, Vec2 { x: 16.0, y: 16.0 }, 4, 1, None, None);
-    let texture_atlas_handle = texture_atlases.add(idle_atlas);
-    let anim_indices = AnimationIndices { first: 0, last: 1 };
-    commands.spawn((
-        SpriteSheetBundle {
-            texture_atlas: texture_atlas_handle,
-            sprite: TextureAtlasSprite::new(anim_indices.first),
-            transform: Transform::from_scale(Vec3::splat(6.0)),
-            ..default()
-        },
-        anim_indices,
-        AnimationTimer(Timer::from_seconds(0.5, TimerMode::Repeating)),
-        Player {},
-    ));
+pub fn game_indicator_ui(mut contexts: EguiContexts) {
+    egui::Area::new("Indicator")
+        .anchor(Align2::CENTER_TOP, egui::emath::vec2(10., 5.))
+        .show(contexts.ctx_mut(), |ui| {
+            ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
+                ui.label(
+                    RichText::new("Game")
+                        .font(FontId::proportional(24.))
+                        .color(Color32::WHITE),
+                );
+            });
+        });
 }
 
 // pub fn setup_level(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -196,40 +81,7 @@ pub fn setup_player(
 //     }
 // }
 
-pub fn teardown(mut commands: Commands, texts: Query<(Entity, With<ExampleGameText>)>) {
-    for (entity, _) in texts.iter() {
-        commands.entity(entity).despawn();
-    }
-}
-
-pub fn example_update(
-    window: Query<&Window>,
-    mut texts: Query<(&mut Style, &mut Pos, &mut Vel, With<ExampleGameText>)>,
-) {
-    let window = window.get_single().unwrap();
-    for (mut style, mut pos, mut vel, _) in texts.iter_mut() {
-        pos.0.y += vel.0.y;
-        pos.0.x += vel.0.x;
-
-        if pos.0.y > window.height() {
-            pos.0.y = window.height();
-            vel.0.y *= -1.0;
-        } else if pos.0.y < 0.0 {
-            pos.0.y = 0.0;
-            vel.0.y *= -1.0;
-        }
-        if pos.0.x > window.width() {
-            pos.0.x = window.width();
-            vel.0.x *= -1.0;
-        } else if pos.0.x < 0.0 {
-            pos.0.x = 0.0;
-            vel.0.x *= -1.0;
-        }
-
-        style.top = Val::Px(pos.0.y);
-        style.left = Val::Px(pos.0.x);
-    }
-}
+pub fn teardown(mut commands: Commands, texts: Query<(Entity, With<ExampleGameText>)>) {}
 
 pub fn animate_sprite(
     time: Res<Time>,

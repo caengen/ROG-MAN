@@ -16,15 +16,17 @@ use bevy_egui::{
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_turborand::prelude::RngPlugin;
 use config::Debug;
+use editor::EditorPlugin;
 use game::{prelude::MainCamera, GamePlugin};
 use main_menu::*;
 use std::{env, process, time::Duration};
 
 mod config;
+mod editor;
 mod game;
 mod main_menu;
 
-pub const SCREEN: Vec2 = Vec2::from_array([495.0, 270.0]);
+pub const SCREEN: Vec2 = Vec2::from_array([1024.0, 768.0]);
 pub const DARK: Color = Color::rgb(0.191, 0.184, 0.156);
 pub const LIGHT: Color = Color::rgb(0.852, 0.844, 0.816);
 
@@ -41,6 +43,8 @@ pub enum GameState {
     #[default]
     MainMenu,
     InGame,
+    InEditor,
+    AssetLoading,
 }
 
 /**
@@ -59,7 +63,7 @@ fn main() {
         DefaultPlugins
             .set(WindowPlugin {
                 primary_window: Some(Window {
-                    title: "TITLE OF YOUR GAME".into(),
+                    title: "RUG-MAN".into(),
                     resolution: (SCREEN.x, SCREEN.y).into(),
                     present_mode: PresentMode::AutoNoVsync,
                     // Tells wasm to resize the window according to the available canvas
@@ -95,14 +99,15 @@ fn main() {
         EguiPlugin,
         MainMenuPlugin,
         GamePlugin,
+        EditorPlugin,
     ))
-    .add_systems(Startup, (setup, setup_fonts))
+    .add_systems(Startup, (spawn_camera, setup_fonts))
     .add_systems(Update, window_resized);
 
     app.run();
 }
 
-fn setup(mut commands: Commands) {
+fn spawn_camera(mut commands: Commands) {
     commands.spawn((
         Camera2dBundle {
             camera_2d: Camera2d {
