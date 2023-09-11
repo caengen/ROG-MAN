@@ -1,5 +1,5 @@
-use crate::{GameState, ImageAssets};
-use bevy::prelude::*;
+use crate::{game::prelude::MainCamera, GameState, ImageAssets};
+use bevy::{math::Vec4Swizzles, prelude::*};
 use bevy_ecs_tilemap::prelude::*;
 use bevy_egui::{
     egui::{self, Align2, Color32, FontData, FontDefinitions, FontFamily, FontId, RichText},
@@ -13,7 +13,8 @@ impl Plugin for EditorPlugin {
         app.add_systems(OnEnter(GameState::InEditor), setup_blank_level)
             .add_systems(
                 Update,
-                (editor_indicator_ui, toggle_game_mode).run_if(in_state(GameState::InEditor)),
+                (editor_indicator_ui, toggle_game_mode, toggle_tile)
+                    .run_if(in_state(GameState::InEditor)),
             )
             .add_systems(OnExit(GameState::InEditor), teardown);
     }
@@ -39,6 +40,67 @@ pub fn toggle_game_mode(
 ) {
     if keyboard.just_released(KeyCode::Space) {
         // next_state.set(GameState::InGame);
+    }
+}
+
+pub fn toggle_tile(
+    windows: Query<&Window>,
+    camera_q: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+    mouse_btn: Res<Input<MouseButton>>,
+    mut tilemap_q: Query<(
+        &TilemapSize,
+        &TilemapGridSize,
+        &TilemapType,
+        &TileStorage,
+        &Transform,
+    )>,
+    mut tile_query: Query<&mut TileTextureIndex>,
+) {
+    let window = windows.single();
+    let (camera, camera_transform) = camera_q.single();
+
+    if (!mouse_btn.just_pressed(MouseButton::Left)) {
+        return;
+    }
+    if let Some(world_position) = window
+        .cursor_position()
+        .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor))
+    {
+        let cursor_pos = world_position.extend(1.0);
+        for (size, grid_size, map_type, storage, transform) in tilemap_q.iter_mut() {
+            let cursor_in_map_pos: Vec2 = {
+                let cursor_pos = Vec4::from((cursor_pos, 1.0));
+                let cursor_in_map_pos = transform.compute_matrix().inverse() * cursor_pos;
+                cursor_in_map_pos.xyz()
+            }
+            .truncate();
+
+            if let Some(tile_pos) =
+                TilePos::from_world_pos(&cursor_in_map_pos, size, grid_size, map_type)
+            {
+                if let Some(entity) = storage.get(&tile_pos) {
+                    match tile_query.get_mut(entity) {
+                        Ok(mut index) => {
+                            index.0 = match index.0 {
+                                0 => 29,
+                                29 => 0,
+                                _ => 29,
+                            };
+                        }
+                        Err(err) => {
+                            println!("Error: {}", err);
+                        }
+                    }
+                    // if Some(index) = tile_query.get_mut(entity) {
+                    //     index.0 = match index.0 {
+                    //         0 => 1,
+                    //         1 => 0,
+                    //         _ => 1,
+                    //     };
+                    // }
+                }
+            }
+        }
     }
 }
 
