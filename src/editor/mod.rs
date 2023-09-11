@@ -82,8 +82,8 @@ pub fn toggle_tile(
                     match tile_query.get_mut(entity) {
                         Ok(mut index) => {
                             index.0 = match index.0 {
-                                0 => 29,
-                                29 => 0,
+                                32 => 29,
+                                29 => 32,
                                 _ => 29,
                             };
                         }
@@ -121,7 +121,7 @@ pub fn setup_blank_level(mut commands: Commands, images: Res<ImageAssets>) {
                 .spawn(TileBundle {
                     position: tile_pos,
                     tilemap_id: TilemapId(tilemap_entity),
-                    texture_index: TileTextureIndex(0),
+                    texture_index: TileTextureIndex(32),
                     ..default()
                 })
                 .id();
