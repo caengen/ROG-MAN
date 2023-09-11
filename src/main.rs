@@ -2,12 +2,14 @@ use bevy::{
     asset::ChangeWatcher,
     core_pipeline::clear_color::ClearColorConfig,
     diagnostic::FrameTimeDiagnosticsPlugin,
+    input::common_conditions::input_toggle_active,
     log::{Level, LogPlugin},
     prelude::*,
     window::PresentMode,
     DefaultPlugins,
 };
 use bevy_asset_loader::prelude::{AssetCollection, LoadingState, LoadingStateAppExt};
+use bevy_ecs_tilemap::TilemapPlugin;
 use bevy_egui::EguiSettings;
 use bevy_egui::{
     egui::{FontData, FontDefinitions, FontFamily},
@@ -31,20 +33,22 @@ pub const DARK: Color = Color::rgb(0.191, 0.184, 0.156);
 pub const LIGHT: Color = Color::rgb(0.852, 0.844, 0.816);
 
 // Example: Easy loading of assets
-// #[derive(AssetCollection, Resource)]
-// pub struct ImageAssets {
-//     #[asset(texture_atlas(tile_size_x = 16.0, tile_size_y = 16.0, columns = 8, rows = 1))]
-//     #[asset(path = "textures/images.png")]
-//     pub images: Handle<TextureAtlas>,
-// }
+#[derive(AssetCollection, Resource)]
+pub struct ImageAssets {
+    #[asset(texture_atlas(tile_size_x = 8.0, tile_size_y = 8.0, columns = 13, rows = 11))]
+    #[asset(path = "textures/1BitRogueSet.png")]
+    pub image_atlas: Handle<TextureAtlas>,
+    #[asset(path = "textures/1BitRogueSet.png")]
+    pub set_image: Handle<Image>,
+}
 
 #[derive(States, Hash, Clone, PartialEq, Eq, Debug, Default)]
 pub enum GameState {
     #[default]
+    AssetLoading,
     MainMenu,
     InGame,
     InEditor,
-    AssetLoading,
 }
 
 /**
@@ -88,21 +92,22 @@ fn main() {
     )
     .add_state::<GameState>()
     .insert_resource(Debug(cfg.debug))
-    // Example: Easy loading of assets
-    // .add_collection_to_loading_state::<_, ImageAssets>(GameState::AssetLoading)
-    // .add_plugins(
-    //     WorldInspectorPlugin::default().run_if(input_toggle_active(false, KeyCode::Escape)),
-    // )
+    .add_loading_state(
+        LoadingState::new(GameState::AssetLoading).continue_to_state(GameState::InEditor),
+    )
+    .add_collection_to_loading_state::<_, ImageAssets>(GameState::AssetLoading)
     .add_plugins((
         FrameTimeDiagnosticsPlugin::default(),
         RngPlugin::new().with_rng_seed(220718),
         EguiPlugin,
+        WorldInspectorPlugin::new().run_if(input_toggle_active(false, KeyCode::Escape)),
         MainMenuPlugin,
         GamePlugin,
         EditorPlugin,
+        TilemapPlugin,
     ))
     .add_systems(Startup, (spawn_camera, setup_fonts))
-    .add_systems(Update, window_resized);
+    .add_systems(Update, (zoom, move_camera));
 
     app.run();
 }
@@ -117,6 +122,44 @@ fn spawn_camera(mut commands: Commands) {
         },
         MainCamera,
     ));
+}
+
+fn zoom(
+    keyboard: Res<Input<KeyCode>>,
+    mut q: Query<&mut OrthographicProjection, With<MainCamera>>,
+) {
+    let mut projection = q.single_mut();
+    let mut log_scale = projection.scale.ln();
+
+    if keyboard.pressed(KeyCode::Q) {
+        log_scale += 0.05;
+    }
+
+    if keyboard.pressed(KeyCode::E) {
+        log_scale -= 0.05;
+    }
+
+    // always ensure you end up with sane values
+    // (pick an upper and lower bound for your application)
+    projection.scale = log_scale.exp();
+    projection.scale = projection.scale.clamp(0.1, 5.0);
+}
+
+fn move_camera(keyboard: Res<Input<KeyCode>>, mut q: Query<&mut Transform, With<MainCamera>>) {
+    let mut transform = q.single_mut();
+
+    if keyboard.pressed(KeyCode::Left) {
+        transform.translation.x -= 1.0;
+    }
+    if keyboard.pressed(KeyCode::Right) {
+        transform.translation.x += 1.0;
+    }
+    if keyboard.pressed(KeyCode::Up) {
+        transform.translation.y += 1.0;
+    }
+    if keyboard.pressed(KeyCode::Down) {
+        transform.translation.y -= 1.0;
+    }
 }
 
 fn setup_fonts(mut contexts: EguiContexts) {
