@@ -59,7 +59,7 @@ pub fn toggle_tile(
     let window = windows.single();
     let (camera, camera_transform) = camera_q.single();
 
-    if (!mouse_btn.just_pressed(MouseButton::Left)) {
+    if !mouse_btn.just_pressed(MouseButton::Left) {
         return;
     }
     if let Some(world_position) = window
@@ -91,13 +91,6 @@ pub fn toggle_tile(
                             println!("Error: {}", err);
                         }
                     }
-                    // if Some(index) = tile_query.get_mut(entity) {
-                    //     index.0 = match index.0 {
-                    //         0 => 1,
-                    //         1 => 0,
-                    //         _ => 1,
-                    //     };
-                    // }
                 }
             }
         }

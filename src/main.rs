@@ -148,16 +148,16 @@ fn zoom(
 fn move_camera(keyboard: Res<Input<KeyCode>>, mut q: Query<&mut Transform, With<MainCamera>>) {
     let mut transform = q.single_mut();
 
-    if keyboard.pressed(KeyCode::Left) {
+    if keyboard.any_pressed([KeyCode::A, KeyCode::Left]) {
         transform.translation.x -= 1.0;
     }
-    if keyboard.pressed(KeyCode::Right) {
+    if keyboard.any_pressed([KeyCode::D, KeyCode::Right]) {
         transform.translation.x += 1.0;
     }
-    if keyboard.pressed(KeyCode::Up) {
+    if keyboard.any_pressed([KeyCode::W, KeyCode::Up]) {
         transform.translation.y += 1.0;
     }
-    if keyboard.pressed(KeyCode::Down) {
+    if keyboard.any_pressed([KeyCode::S, KeyCode::Down]) {
         transform.translation.y -= 1.0;
     }
 }
