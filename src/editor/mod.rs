@@ -55,7 +55,7 @@ pub fn key_input(
     mut undo_edit_action: EventWriter<UndoEditActionEvent>,
     mut redo_edit_action: EventWriter<RedoEditActionEvent>,
 ) {
-    if keyboard.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight]) {
+    if keyboard.any_pressed([KeyCode::AltLeft, KeyCode::AltRight]) {
         if keyboard.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]) {
             if keyboard.just_released(KeyCode::Z) {
                 redo_edit_action.send(RedoEditActionEvent);
