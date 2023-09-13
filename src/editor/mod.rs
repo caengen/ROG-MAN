@@ -25,6 +25,7 @@ impl Plugin for EditorPlugin {
                     toggle_game_mode,
                     tile_click,
                     add_edit_actions,
+                    undo_edit_action,
                 )
                     .run_if(in_state(GameState::InEditor)),
             )
@@ -87,6 +88,39 @@ fn index_to_material(index: u32) -> TileMaterial {
         32 => TileMaterial::Floor,
         _ => TileMaterial::Wall,
     }
+}
+
+pub fn undo_edit_action(
+    mut action_stack: ResMut<ActionStack>,
+    mut undo_action_reader: EventReader<UndoEditActionEvent>,
+    mut tilemap_storage: Query<&TileStorage>,
+    mut tile_query: Query<&mut TileTextureIndex>,
+) {
+    undo_action_reader.iter().for_each(|_| {
+        if let Some(action) = action_stack.undo() {
+            match action {
+                EditAction::PlaceTile {
+                    material,
+                    tile_pos,
+                    size,
+                } => {
+                    let storage = tilemap_storage.single_mut();
+                    if let Some(entity) = storage.get(&tile_pos) {
+                        match tile_query.get_mut(entity) {
+                            Ok(mut index) => {
+                                // Mutation
+                                index.0 = material_to_index(&material);
+                            }
+                            Err(err) => {
+                                println!("Entity does not exist: {}", err);
+                            }
+                        };
+                    }
+                }
+                _ => {}
+            }
+        }
+    });
 }
 
 pub fn add_edit_actions(

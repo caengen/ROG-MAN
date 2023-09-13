@@ -101,9 +101,9 @@ impl ActionStack {
     }
 
     pub fn undo(&mut self) -> Option<EditAction> {
-        if self.cursor > 1 {
+        if self.cursor > 0 {
             self.cursor -= 1;
-            Some(self.stack[self.cursor - 1].value.clone())
+            Some(self.stack[self.cursor].undo.clone())
         } else {
             None
         }
