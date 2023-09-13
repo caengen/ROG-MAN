@@ -26,6 +26,7 @@ impl Plugin for EditorPlugin {
                     tile_click,
                     add_edit_actions,
                     undo_edit_action,
+                    redo_edit_action,
                 )
                     .run_if(in_state(GameState::InEditor)),
             )
@@ -55,13 +56,14 @@ pub fn key_input(
     mut redo_edit_action: EventWriter<RedoEditActionEvent>,
 ) {
     if keyboard.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight]) {
-        if (keyboard.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight])) {
-            if keyboard.just_pressed(KeyCode::Z) {
+        if keyboard.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]) {
+            if keyboard.just_released(KeyCode::Z) {
                 redo_edit_action.send(RedoEditActionEvent);
             }
-        }
-        if keyboard.just_pressed(KeyCode::Z) {
-            undo_edit_action.send(UndoEditActionEvent);
+        } else {
+            if keyboard.just_released(KeyCode::Z) {
+                undo_edit_action.send(UndoEditActionEvent);
+            }
         }
     }
 }
@@ -88,6 +90,39 @@ fn index_to_material(index: u32) -> TileMaterial {
         32 => TileMaterial::Floor,
         _ => TileMaterial::Wall,
     }
+}
+
+pub fn redo_edit_action(
+    mut action_stack: ResMut<ActionStack>,
+    mut redo_action_reader: EventReader<RedoEditActionEvent>,
+    mut tilemap_storage: Query<&TileStorage>,
+    mut tile_query: Query<&mut TileTextureIndex>,
+) {
+    redo_action_reader.iter().for_each(|_| {
+        if let Some(action) = action_stack.redo() {
+            match action {
+                EditAction::PlaceTile {
+                    material,
+                    tile_pos,
+                    size,
+                } => {
+                    let storage = tilemap_storage.single_mut();
+                    if let Some(entity) = storage.get(&tile_pos) {
+                        match tile_query.get_mut(entity) {
+                            Ok(mut index) => {
+                                // Mutation
+                                index.0 = material_to_index(&material);
+                            }
+                            Err(err) => {
+                                println!("Entity does not exist: {}", err);
+                            }
+                        };
+                    }
+                }
+                _ => {}
+            }
+        }
+    });
 }
 
 pub fn undo_edit_action(
