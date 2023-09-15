@@ -1,7 +1,7 @@
-use bevy::prelude::{Event, Resource, Vec2};
+use bevy::prelude::{Component, Event, Resource, Vec2};
 use bevy_ecs_tilemap::tiles::TilePos;
 
-#[derive(Resource, Clone, Debug, PartialEq)]
+#[derive(Component, Clone, Debug, PartialEq)]
 pub enum TileMaterial {
     Wall,
     Floor,
@@ -9,8 +9,8 @@ pub enum TileMaterial {
 
 #[derive(Resource)]
 pub struct RogBrush {
-    material: TileMaterial,
-    size: usize,
+    pub material: TileMaterial,
+    pub size: usize,
 }
 
 impl RogBrush {
@@ -65,30 +65,6 @@ impl ActionStack {
             cursor: 0,
             stack: Vec::new(),
         }
-    }
-
-    pub fn current_value(&self) -> Option<&EditAction> {
-        if self.cursor == 0 {
-            return None;
-        }
-
-        Some(&self.stack[self.cursor - 1].value)
-    }
-
-    pub fn current(&self) -> Option<&Reversible<EditAction>> {
-        if self.cursor == 0 {
-            return None;
-        }
-
-        Some(&self.stack[self.cursor - 1])
-    }
-
-    pub fn current_mut(&mut self) -> Option<&mut Reversible<EditAction>> {
-        if self.cursor == 0 {
-            return None;
-        }
-
-        Some(&mut self.stack[self.cursor - 1])
     }
 
     pub fn push(&mut self, value: EditAction, undo: EditAction) {
