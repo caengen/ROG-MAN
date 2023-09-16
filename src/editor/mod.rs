@@ -155,39 +155,6 @@ fn commit_action(
     undo
 }
 
-// pub fn get_wall_atlas_pos(tiles: &Vec<CoarseTileType>, surrounding: &Vec<usize>) -> CaveAtlasIndex {
-//     let matches = surrounding
-//         .iter()
-//         .map(|idx| tiles.get(*idx))
-//         .map(|t| match t {
-//             Some(CoarseTileType::Wall) => true,
-//             _ => false,
-//         })
-//         .collect::<Vec<bool>>();
-
-//     match matches[..] {
-//         // end pieces
-//         [_, false, _, true, false, _, false, _] => CaveAtlasIndex::Wall1Left,
-//         [_, false, _, false, true, _, false, _] => CaveAtlasIndex::Wall1Right,
-//         [_, false, _, false, false, _, true, _] => CaveAtlasIndex::Wall1Bottom,
-//         [_, true, _, false, false, _, false, _] => CaveAtlasIndex::Wall1Top,
-//         // connectors
-//         [_, true, _, true, true, _, true, _] => CaveAtlasIndex::Wall1TopRightBottomLeft,
-//         [_, true, _, false, false, _, true, _] => CaveAtlasIndex::Wall1TopBottom,
-//         [_, false, _, true, true, _, false, _] => CaveAtlasIndex::Wall1RightLeft,
-//         [_, false, _, true, true, _, true, _] => CaveAtlasIndex::Wall1RightBottomLeft,
-//         [_, true, _, true, true, _, false, _] => CaveAtlasIndex::Wall1TopRightLeft,
-//         [_, true, _, true, false, _, true, _] => CaveAtlasIndex::Wall1TopBottomLeft,
-//         [_, true, _, false, true, _, true, _] => CaveAtlasIndex::Wall1TopRightBottom,
-//         // corners
-//         [_, false, _, false, true, _, true, _] => CaveAtlasIndex::Wall1RightBottom,
-//         [_, false, _, true, false, _, true, _] => CaveAtlasIndex::Wall1BottomLeft,
-//         [_, true, _, false, true, _, false, _] => CaveAtlasIndex::Wall1TopRight,
-//         [_, true, _, true, false, _, false, _] => CaveAtlasIndex::Wall1TopLeft,
-//         _ => CaveAtlasIndex::CaveFloor1_d,
-//     }
-// }
-
 fn update_board(
     tilemap_storage: Query<(&TileStorage, &TilemapSize)>,
     mut tiles: Query<(Entity, &mut TileTextureIndex, &TilePos, &TileMaterial)>,
@@ -197,9 +164,6 @@ fn update_board(
     let mut tiles_to_update: Vec<TileMapIndex> = Vec::new();
 
     for (_, _, tile_pos, material) in tiles.iter() {
-        // index.0 = material_to_index(maybe_material);
-        // commands.entity(entity).remove::<TileMaterial>();
-
         match material {
             TileMaterial::Wall => {
                 let neighbor_positions =
@@ -231,17 +195,18 @@ fn update_board(
                     [false, true, true, true] => TileMapIndex::WallOXXX,
                     [true, false, true, true] => TileMapIndex::WallXOXX,
                     [false, true, true, false] => TileMapIndex::WallOXXO,
-                    [false, true, false, true] => TileMapIndex::WallOXOX, // what?
+                    [false, true, false, true] => TileMapIndex::WallOXOX,
                     [false, false, true, true] => TileMapIndex::WallOOXX,
                     [true, true, true, true] => TileMapIndex::WallXXXX,
                     [true, true, true, false] => TileMapIndex::WallXXXO,
                     [true, true, false, true] => TileMapIndex::WallXXOX,
                     [false, false, false, true] => TileMapIndex::WallOOOX,
                     [true, false, true, false] => TileMapIndex::WallXOXO,
-                    [false, false, false, false] => TileMapIndex::WallXXXX, // no connections
+                    [false, false, false, false] => TileMapIndex::WallOXOX, // no connections
                     [true, false, false, false] => TileMapIndex::WallXOOO,
                     [false, false, true, false] => TileMapIndex::WallOOXO,
                     [true, true, false, false] => TileMapIndex::WallXXOO,
+                    [false, true, false, false] => TileMapIndex::WallOXOO,
                     [true, false, false, true] => TileMapIndex::WallXOOX,
                     _ => TileMapIndex::Floor,
                 };
