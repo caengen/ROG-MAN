@@ -1,6 +1,9 @@
 use crate::{game::prelude::MainCamera, GameState, ImageAssets};
 use bevy::{math::Vec4Swizzles, prelude::*, reflect::Tuple, transform::commands};
-use bevy_ecs_tilemap::{helpers::square_grid::neighbors, prelude::*};
+use bevy_ecs_tilemap::{
+    helpers::square_grid::neighbors::{self, Neighbors, SquareDirection},
+    prelude::*,
+};
 use bevy_egui::{
     egui::{self, style, Align2, Color32, FontData, FontDefinitions, FontFamily, FontId, RichText},
     EguiContexts, EguiSettings,
@@ -152,14 +155,111 @@ fn commit_action(
     undo
 }
 
+// pub fn get_wall_atlas_pos(tiles: &Vec<CoarseTileType>, surrounding: &Vec<usize>) -> CaveAtlasIndex {
+//     let matches = surrounding
+//         .iter()
+//         .map(|idx| tiles.get(*idx))
+//         .map(|t| match t {
+//             Some(CoarseTileType::Wall) => true,
+//             _ => false,
+//         })
+//         .collect::<Vec<bool>>();
+
+//     match matches[..] {
+//         // end pieces
+//         [_, false, _, true, false, _, false, _] => CaveAtlasIndex::Wall1Left,
+//         [_, false, _, false, true, _, false, _] => CaveAtlasIndex::Wall1Right,
+//         [_, false, _, false, false, _, true, _] => CaveAtlasIndex::Wall1Bottom,
+//         [_, true, _, false, false, _, false, _] => CaveAtlasIndex::Wall1Top,
+//         // connectors
+//         [_, true, _, true, true, _, true, _] => CaveAtlasIndex::Wall1TopRightBottomLeft,
+//         [_, true, _, false, false, _, true, _] => CaveAtlasIndex::Wall1TopBottom,
+//         [_, false, _, true, true, _, false, _] => CaveAtlasIndex::Wall1RightLeft,
+//         [_, false, _, true, true, _, true, _] => CaveAtlasIndex::Wall1RightBottomLeft,
+//         [_, true, _, true, true, _, false, _] => CaveAtlasIndex::Wall1TopRightLeft,
+//         [_, true, _, true, false, _, true, _] => CaveAtlasIndex::Wall1TopBottomLeft,
+//         [_, true, _, false, true, _, true, _] => CaveAtlasIndex::Wall1TopRightBottom,
+//         // corners
+//         [_, false, _, false, true, _, true, _] => CaveAtlasIndex::Wall1RightBottom,
+//         [_, false, _, true, false, _, true, _] => CaveAtlasIndex::Wall1BottomLeft,
+//         [_, true, _, false, true, _, false, _] => CaveAtlasIndex::Wall1TopRight,
+//         [_, true, _, true, false, _, false, _] => CaveAtlasIndex::Wall1TopLeft,
+//         _ => CaveAtlasIndex::CaveFloor1_d,
+//     }
+// }
+
 fn update_board(
-    mut commands: Commands,
-    mut dirty_tiles: Query<(Entity, &mut TileTextureIndex, &TileMaterial)>,
+    tilemap_storage: Query<(&TileStorage, &TilemapSize)>,
+    mut tiles: Query<(Entity, &mut TileTextureIndex, &TilePos, &TileMaterial)>,
 ) {
-    for (entity, mut index, material) in dirty_tiles.iter_mut() {
-        index.0 = material_to_index(material);
-        commands.entity(entity).remove::<TileMaterial>();
+    let (map_storage, map_size) = tilemap_storage.single();
+
+    let mut tiles_to_update: Vec<TileMapIndex> = Vec::new();
+
+    for (_, _, tile_pos, material) in tiles.iter() {
+        // index.0 = material_to_index(maybe_material);
+        // commands.entity(entity).remove::<TileMaterial>();
+
+        match material {
+            TileMaterial::Wall => {
+                let neighbor_positions =
+                    Neighbors::get_square_neighboring_positions(&tile_pos, &map_size, false);
+                let neighbor_entities = neighbor_positions.entities(&map_storage);
+                let dirs = &[
+                    SquareDirection::North,
+                    SquareDirection::East,
+                    SquareDirection::South,
+                    SquareDirection::West,
+                ];
+                let dirs = dirs
+                    .iter()
+                    .map(|dir| {
+                        if let Some(entity) = neighbor_entities.get(dir.clone()) {
+                            if let Ok((_, _, _, material)) = tiles.get(*entity) {
+                                return match material {
+                                    TileMaterial::Wall => true,
+                                    TileMaterial::Floor => false,
+                                };
+                            }
+                        }
+
+                        return false;
+                    })
+                    .collect::<Vec<_>>();
+
+                let tile_map_index = match dirs[..] {
+                    [false, true, true, true] => TileMapIndex::WallOXXX,
+                    [true, false, true, true] => TileMapIndex::WallXOXX,
+                    [false, true, true, false] => TileMapIndex::WallOXXO,
+                    [false, true, false, true] => TileMapIndex::WallOXOX, // what?
+                    [false, false, true, true] => TileMapIndex::WallOOXX,
+                    [true, true, true, true] => TileMapIndex::WallXXXX,
+                    [true, true, true, false] => TileMapIndex::WallXXXO,
+                    [true, true, false, true] => TileMapIndex::WallXXOX,
+                    [false, false, false, true] => TileMapIndex::WallOOOX,
+                    [true, false, true, false] => TileMapIndex::WallXOXO,
+                    [false, false, false, false] => TileMapIndex::WallXXXX, // no connections
+                    [true, false, false, false] => TileMapIndex::WallXOOO,
+                    [false, false, true, false] => TileMapIndex::WallOOXO,
+                    [true, true, false, false] => TileMapIndex::WallXXOO,
+                    [true, false, false, true] => TileMapIndex::WallXOOX,
+                    _ => TileMapIndex::Floor,
+                };
+
+                tiles_to_update.push(tile_map_index.clone());
+            }
+            TileMaterial::Floor => {
+                tiles_to_update.push(TileMapIndex::Floor);
+            }
+        }
     }
+
+    tiles
+        .iter_mut()
+        .enumerate()
+        .for_each(|(idx, (_, mut index, ..))| {
+            index.0 = tiles_to_update[idx].clone() as u32;
+        });
 }
 
 pub fn redo_edit_action(
@@ -177,6 +277,7 @@ pub fn redo_edit_action(
     });
 }
 
+// todo fix
 pub fn undo_edit_action(
     mut commands: Commands,
     mut action_stack: ResMut<ActionStack>,
@@ -272,12 +373,15 @@ pub fn setup_blank_level(mut commands: Commands, images: Res<ImageAssets>) {
         for y in 0..map_size.y {
             let tile_pos = TilePos { x, y };
             let tile_entity = commands
-                .spawn(TileBundle {
-                    position: tile_pos,
-                    tilemap_id: TilemapId(tilemap_entity),
-                    texture_index: TileTextureIndex(32),
-                    ..default()
-                })
+                .spawn((
+                    TileBundle {
+                        position: tile_pos,
+                        tilemap_id: TilemapId(tilemap_entity),
+                        texture_index: TileTextureIndex(32),
+                        ..default()
+                    },
+                    TileMaterial::Floor,
+                ))
                 .id();
             tile_storage.set(&tile_pos, tile_entity);
         }
@@ -288,7 +392,7 @@ pub fn setup_blank_level(mut commands: Commands, images: Res<ImageAssets>) {
         map_type,
         size: map_size,
         storage: tile_storage,
-        texture: TilemapTexture::Single(images.set_image.clone()),
+        texture: TilemapTexture::Single(images.tilemap_image.clone()),
         tile_size,
         transform: get_tilemap_center_transform(&map_size, &grid_size, &map_type, 0.0),
         ..Default::default()

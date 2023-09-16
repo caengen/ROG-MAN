@@ -94,3 +94,26 @@ impl ActionStack {
         }
     }
 }
+
+// Walls are denoted by which neighbors they connect to. Annotation is done clockwise beginning
+// at north.
+// E.g. XOXX is T piece connecting to north, south and west
+#[derive(Clone, Debug, PartialEq)]
+pub enum TileMapIndex {
+    WallOXXX = 0,
+    WallXOXX = 1,
+    WallOXXO = 2,
+    WallOXOX = 3,
+    WallOOXX = 4,
+    WallXXXX = 5,
+    WallXXXO = 6,
+    WallXXOX = 7,
+    WallOOOX = 9,
+    WallXOXO = 10,
+    Floor = 11,
+    WallXOOO = 12,
+    WallOOXO = 13,
+    WallXXOO = 14,
+    WallXOOX = 16,
+    QuestionMark = 17,
+}

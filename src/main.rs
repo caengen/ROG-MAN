@@ -40,6 +40,8 @@ pub struct ImageAssets {
     pub image_atlas: Handle<TextureAtlas>,
     #[asset(path = "textures/1BitRogueSet.png")]
     pub set_image: Handle<Image>,
+    #[asset(path = "textures/tilemap.png")]
+    pub tilemap_image: Handle<Image>,
 }
 
 #[derive(States, Hash, Clone, PartialEq, Eq, Debug, Default)]
