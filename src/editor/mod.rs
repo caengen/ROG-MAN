@@ -118,7 +118,7 @@ fn index_to_material(index: u32) -> TileMaterial {
 fn commit_action(
     commands: &mut Commands,
     storage: &TileStorage,
-    tile_query: &mut Query<&mut TileTextureIndex>,
+    tile_query: &Query<&TileMaterial>,
     action: &EditAction,
 ) -> EditAction {
     let undo: EditAction = match action {
@@ -126,11 +126,11 @@ fn commit_action(
             material, tile_pos, ..
         } => {
             storage.get(&tile_pos).map_or(action.clone(), |entity| {
-                match tile_query.get_mut(entity) {
-                    Ok(mut index) => {
+                match tile_query.get(entity) {
+                    Ok(current_material) => {
                         let undo = EditAction::PlaceTile {
                             tile_pos: *tile_pos,
-                            material: index_to_material(index.0),
+                            material: current_material.clone(),
                             size: 1,
                         };
 
@@ -267,28 +267,27 @@ pub fn redo_edit_action(
     mut action_stack: ResMut<ActionStack>,
     mut redo_action_reader: EventReader<RedoEditActionEvent>,
     tilemap_storage: Query<&TileStorage>,
-    mut tile_query: Query<&mut TileTextureIndex>,
+    tile_query: Query<&TileMaterial>,
 ) {
     redo_action_reader.iter().for_each(|_| {
         if let Some(action) = action_stack.redo() {
             let storage = tilemap_storage.single();
-            let _ = commit_action(&mut commands, storage, &mut tile_query, &action);
+            let _ = commit_action(&mut commands, storage, &tile_query, &action);
         }
     });
 }
 
-// todo fix
 pub fn undo_edit_action(
     mut commands: Commands,
     mut action_stack: ResMut<ActionStack>,
     mut undo_action_reader: EventReader<UndoEditActionEvent>,
     mut tilemap_storage: Query<&TileStorage>,
-    mut tile_query: Query<&mut TileTextureIndex>,
+    mut tile_query: Query<&TileMaterial>,
 ) {
     undo_action_reader.iter().for_each(|_| {
         if let Some(action) = action_stack.undo() {
             let storage = tilemap_storage.single_mut();
-            let _ = commit_action(&mut commands, storage, &mut tile_query, &action);
+            let _ = commit_action(&mut commands, storage, &tile_query, &action);
         }
     });
 }
@@ -298,14 +297,14 @@ pub fn add_edit_actions(
     mut action_stack: ResMut<ActionStack>,
     mut add_action_reader: EventReader<AddEditActionEvent>,
     tilemap_storage: Query<&TileStorage>,
-    mut tile_query: Query<&mut TileTextureIndex>,
+    tile_query: Query<&TileMaterial>,
 ) {
     add_action_reader
         .iter()
         .for_each(|AddEditActionEvent(action)| match action {
             EditAction::PlaceTile { .. } => {
                 let storage = tilemap_storage.single();
-                let undo = commit_action(&mut commands, storage, &mut tile_query, &action);
+                let undo = commit_action(&mut commands, storage, &tile_query, &action);
                 action_stack.push(action.clone(), undo);
             }
             _ => {}
