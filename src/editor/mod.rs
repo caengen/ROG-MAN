@@ -324,7 +324,7 @@ pub fn tile_click(
 }
 
 pub fn setup_blank_level(mut commands: Commands, images: Res<ImageAssets>) {
-    let map_size = TilemapSize { x: 24, y: 24 };
+    let map_size = TilemapSize { x: 32, y: 32 };
 
     let mut tile_storage = TileStorage::empty(map_size);
     let tilemap_entity = commands.spawn_empty().id();
