@@ -4,15 +4,13 @@ use bevy_ecs_tilemap::{
     helpers::square_grid::neighbors::{self, Neighbors, SquareDirection},
     prelude::*,
 };
-use bevy_egui::{
-    egui::{self, style, Align2, Color32, FontData, FontDefinitions, FontFamily, FontId, RichText},
-    EguiContexts, EguiSettings,
-};
 
 pub struct EditorPlugin;
 
 mod components;
 use components::*;
+mod ui;
+use ui::*;
 
 impl Plugin for EditorPlugin {
     fn build(&self, app: &mut App) {
@@ -30,47 +28,19 @@ impl Plugin for EditorPlugin {
                     undo_edit_action,
                     redo_edit_action,
                     update_board,
-                    editor_indicator_ui,
-                    brush_mode_ui,
                 )
                     .chain()
+                    .run_if(in_state(GameState::InEditor)),
+            )
+            .add_systems(
+                Update,
+                (brush_panel_ui, editor_indicator_ui, brush_mode_ui)
                     .run_if(in_state(GameState::InEditor)),
             )
             .add_systems(OnExit(GameState::InEditor), teardown)
             .insert_resource(RogBrush::default())
             .insert_resource(ActionStack::default());
     }
-}
-
-pub fn editor_indicator_ui(mut contexts: EguiContexts) {
-    egui::Area::new("Indicator")
-        .anchor(Align2::CENTER_TOP, egui::emath::vec2(10., 5.))
-        .show(contexts.ctx_mut(), |ui| {
-            ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
-                ui.label(
-                    RichText::new("Edit")
-                        .font(FontId::proportional(24.))
-                        .color(Color32::WHITE),
-                );
-            });
-        });
-}
-
-pub fn brush_mode_ui(mut contexts: EguiContexts, mut brush: ResMut<RogBrush>) {
-    egui::Area::new("Brush")
-        .anchor(Align2::CENTER_TOP, egui::emath::vec2(0., -50.))
-        .show(contexts.ctx_mut(), |ui| {
-            ui.with_layout(egui::Layout::left_to_right(egui::Align::BOTTOM), |ui| {
-                if ui.button("Wall").clicked() {
-                    // todo: SetMaterial?
-                    brush.material = TileMaterial::Wall;
-                }
-                // todo: SetMaterial?
-                if ui.button("Eraser").clicked() {
-                    brush.material = TileMaterial::Floor;
-                }
-            });
-        });
 }
 
 pub fn key_input(
