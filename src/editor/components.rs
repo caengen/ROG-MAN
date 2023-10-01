@@ -36,27 +36,24 @@ impl<T> Reversible<T> {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum EditAction {
-    SetMaterial(TileMaterial),
-    SetSize(usize),
     PlaceTile {
         tile_pos: TilePos,
         material: TileMaterial,
         size: usize,
     },
 }
+#[derive(Event, Clone, Debug, PartialEq)]
+pub struct EditEvent(pub Vec<EditAction>);
 
 #[derive(Event, Clone, Debug, PartialEq)]
-pub struct AddEditActionEvent(pub EditAction);
-
+pub struct UndoEditEvent;
 #[derive(Event, Clone, Debug, PartialEq)]
-pub struct UndoEditActionEvent;
-#[derive(Event, Clone, Debug, PartialEq)]
-pub struct RedoEditActionEvent;
+pub struct RedoEditEvent;
 
 #[derive(Resource)]
 pub struct ActionStack {
     cursor: usize,
-    stack: Vec<Reversible<EditAction>>,
+    stack: Vec<Reversible<Vec<EditAction>>>,
 }
 
 impl ActionStack {
@@ -67,7 +64,7 @@ impl ActionStack {
         }
     }
 
-    pub fn push(&mut self, value: EditAction, undo: EditAction) {
+    pub fn push(&mut self, value: Vec<EditAction>, undo: Vec<EditAction>) {
         if self.cursor < self.stack.len() {
             self.stack.truncate(self.cursor);
         }
@@ -76,7 +73,7 @@ impl ActionStack {
         self.cursor = self.stack.len();
     }
 
-    pub fn undo(&mut self) -> Option<EditAction> {
+    pub fn undo(&mut self) -> Option<Vec<EditAction>> {
         if self.cursor > 0 {
             self.cursor -= 1;
             Some(self.stack[self.cursor].undo.clone())
@@ -85,7 +82,7 @@ impl ActionStack {
         }
     }
 
-    pub fn redo(&mut self) -> Option<EditAction> {
+    pub fn redo(&mut self) -> Option<Vec<EditAction>> {
         if self.cursor < self.stack.len() {
             self.cursor += 1;
             Some(self.stack[self.cursor - 1].value.clone())

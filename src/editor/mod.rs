@@ -15,9 +15,9 @@ use ui::*;
 impl Plugin for EditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(GameState::InEditor), setup_blank_level)
-            .add_event::<AddEditActionEvent>()
-            .add_event::<UndoEditActionEvent>()
-            .add_event::<RedoEditActionEvent>()
+            .add_event::<EditEvent>()
+            .add_event::<UndoEditEvent>()
+            .add_event::<RedoEditEvent>()
             .add_systems(
                 Update,
                 (
@@ -45,17 +45,17 @@ impl Plugin for EditorPlugin {
 
 pub fn key_input(
     keyboard: Res<Input<KeyCode>>,
-    mut undo_edit_action: EventWriter<UndoEditActionEvent>,
-    mut redo_edit_action: EventWriter<RedoEditActionEvent>,
+    mut undo_edit_action: EventWriter<UndoEditEvent>,
+    mut redo_edit_action: EventWriter<RedoEditEvent>,
 ) {
     if keyboard.any_pressed([KeyCode::AltLeft, KeyCode::AltRight]) {
         if keyboard.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]) {
             if keyboard.just_released(KeyCode::Z) {
-                redo_edit_action.send(RedoEditActionEvent);
+                redo_edit_action.send(RedoEditEvent);
             }
         } else {
             if keyboard.just_released(KeyCode::Z) {
-                undo_edit_action.send(UndoEditActionEvent);
+                undo_edit_action.send(UndoEditEvent);
             }
         }
     }
@@ -200,14 +200,16 @@ fn update_board(
 pub fn redo_edit_action(
     mut commands: Commands,
     mut action_stack: ResMut<ActionStack>,
-    mut redo_action_reader: EventReader<RedoEditActionEvent>,
+    mut redo_action_reader: EventReader<RedoEditEvent>,
     tilemap_storage: Query<&TileStorage>,
     tile_query: Query<&TileMaterial>,
 ) {
     redo_action_reader.iter().for_each(|_| {
-        if let Some(action) = action_stack.redo() {
+        if let Some(actions) = action_stack.redo() {
             let storage = tilemap_storage.single();
-            let _ = commit_action(&mut commands, storage, &tile_query, &action);
+            actions.iter().for_each(|action| {
+                let _ = commit_action(&mut commands, storage, &tile_query, &action);
+            })
         }
     });
 }
@@ -215,14 +217,16 @@ pub fn redo_edit_action(
 pub fn undo_edit_action(
     mut commands: Commands,
     mut action_stack: ResMut<ActionStack>,
-    mut undo_action_reader: EventReader<UndoEditActionEvent>,
+    mut undo_action_reader: EventReader<UndoEditEvent>,
     mut tilemap_storage: Query<&TileStorage>,
     mut tile_query: Query<&TileMaterial>,
 ) {
     undo_action_reader.iter().for_each(|_| {
-        if let Some(action) = action_stack.undo() {
+        if let Some(actions) = action_stack.undo() {
             let storage = tilemap_storage.single_mut();
-            let _ = commit_action(&mut commands, storage, &tile_query, &action);
+            actions.iter().for_each(|action| {
+                let _ = commit_action(&mut commands, storage, &tile_query, &action);
+            });
         }
     });
 }
@@ -230,20 +234,27 @@ pub fn undo_edit_action(
 pub fn add_edit_actions(
     mut commands: Commands,
     mut action_stack: ResMut<ActionStack>,
-    mut add_action_reader: EventReader<AddEditActionEvent>,
+    mut add_action_reader: EventReader<EditEvent>,
     tilemap_storage: Query<&TileStorage>,
     tile_query: Query<&TileMaterial>,
 ) {
-    add_action_reader
-        .iter()
-        .for_each(|AddEditActionEvent(action)| match action {
-            EditAction::PlaceTile { .. } => {
-                let storage = tilemap_storage.single();
-                let undo = commit_action(&mut commands, storage, &tile_query, &action);
-                action_stack.push(action.clone(), undo);
-            }
-            _ => {}
-        });
+    add_action_reader.iter().for_each(|EditEvent(actions)| {
+        let undos: Vec<EditAction> =
+            actions
+                .iter()
+                .fold(Vec::new(), |mut undos, action| match action {
+                    EditAction::PlaceTile { .. } => {
+                        let storage = tilemap_storage.single();
+                        let undo = commit_action(&mut commands, storage, &tile_query, &action);
+
+                        undos.push(undo);
+
+                        undos
+                    }
+                    _ => undos,
+                });
+        action_stack.push(actions.clone(), undos);
+    });
 }
 
 pub fn tile_click(
@@ -257,7 +268,7 @@ pub fn tile_click(
         &TileStorage,
         &Transform,
     )>,
-    mut add_edit_action: EventWriter<AddEditActionEvent>,
+    mut add_edit_action: EventWriter<EditEvent>,
     brush: Res<RogBrush>,
 ) {
     let window = windows.single();
@@ -283,11 +294,11 @@ pub fn tile_click(
             if let Some(tile_pos) =
                 TilePos::from_world_pos(&cursor_in_map_pos, size, grid_size, map_type)
             {
-                add_edit_action.send(AddEditActionEvent(EditAction::PlaceTile {
+                add_edit_action.send(EditEvent(vec![EditAction::PlaceTile {
                     material: brush.material.clone(),
                     tile_pos,
                     size: brush.size,
-                }))
+                }]))
             }
         }
     }
