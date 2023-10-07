@@ -1,10 +1,15 @@
 use bevy::prelude::{Component, Event, Resource, Vec2};
 use bevy_ecs_tilemap::tiles::TilePos;
 
+pub enum Cleanup {
+    CleanupInEditorExit,
+}
+
 #[derive(Component, Clone, Debug, PartialEq)]
 pub enum TileMaterial {
     Wall,
     Floor,
+    PlayerSpawn,
 }
 
 #[derive(Resource)]
@@ -124,4 +129,5 @@ pub enum TileMapIndex {
     WallOXOO = 14,
     WallXOOX = 16,
     QuestionMark = 17,
+    PlayerSpawn = 18,
 }

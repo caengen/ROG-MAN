@@ -42,6 +42,10 @@ pub fn brush_panel_ui(mut contexts: EguiContexts, mut brush: ResMut<RogBrush>) {
         .anchor(Align2::RIGHT_TOP, egui::emath::vec2(0., 100.))
         .show(contexts.ctx_mut(), |ui| {
             ui.with_layout(egui::Layout::top_down(egui::Align::TOP), |ui| {
+                if ui.button("Spawn").clicked() {
+                    brush.material = TileMaterial::PlayerSpawn;
+                }
+
                 if ui.button("Wall").clicked() {
                     // todo: SetMaterial?
                     brush.material = TileMaterial::Wall;

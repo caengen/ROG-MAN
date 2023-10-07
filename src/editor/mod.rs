@@ -70,21 +70,6 @@ pub fn toggle_game_mode(
     }
 }
 
-fn material_to_index(material: &TileMaterial) -> u32 {
-    match material {
-        TileMaterial::Wall => 29,
-        TileMaterial::Floor => 32,
-    }
-}
-
-fn index_to_material(index: u32) -> TileMaterial {
-    match index {
-        29 => TileMaterial::Wall,
-        32 => TileMaterial::Floor,
-        _ => TileMaterial::Wall,
-    }
-}
-
 fn commit_action(
     commands: &mut Commands,
     storage: &TileStorage,
@@ -153,6 +138,7 @@ fn update_board(
                                 return match material {
                                     TileMaterial::Wall => true,
                                     TileMaterial::Floor => false,
+                                    TileMaterial::PlayerSpawn => false,
                                 };
                             }
                         }
@@ -185,6 +171,9 @@ fn update_board(
             }
             TileMaterial::Floor => {
                 tiles_to_update.push(TileMapIndex::Floor);
+            }
+            TileMaterial::PlayerSpawn => {
+                tiles_to_update.push(TileMapIndex::PlayerSpawn);
             }
         }
     }
@@ -365,6 +354,7 @@ pub fn setup_blank_level(mut commands: Commands, images: Res<ImageAssets>) {
             let tile_pos = TilePos { x, y };
             let tile_entity = commands
                 .spawn((
+                    Name::new("Base Tilemap Tile"),
                     TileBundle {
                         position: tile_pos,
                         tilemap_id: TilemapId(tilemap_entity),
