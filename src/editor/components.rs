@@ -64,6 +64,16 @@ impl ActionStack {
         }
     }
 
+    pub fn last_tilepos(&self) -> Option<TilePos> {
+        if self.cursor > 0 {
+            let last = &self.stack[self.cursor - 1];
+            if let Some(EditAction::PlaceTile { tile_pos, .. }) = last.value.last() {
+                return Some(*tile_pos);
+            }
+        }
+        None
+    }
+
     pub fn push(&mut self, value: Vec<EditAction>, undo: Vec<EditAction>) {
         if self.cursor < self.stack.len() {
             self.stack.truncate(self.cursor);

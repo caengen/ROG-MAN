@@ -1,4 +1,4 @@
-use crate::{game::prelude::MainCamera, GameState, ImageAssets};
+use crate::{game::prelude::MainCamera, get_some, GameState, ImageAssets};
 use bevy::{math::Vec4Swizzles, prelude::*, reflect::Tuple, transform::commands};
 use bevy_ecs_tilemap::{
     helpers::square_grid::neighbors::{self, Neighbors, SquareDirection},
@@ -261,6 +261,7 @@ pub fn tile_click(
     windows: Query<&Window>,
     camera_q: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
     mouse_btn: Res<Input<MouseButton>>,
+    keyboard: Res<Input<KeyCode>>,
     tilemap_q: Query<(
         &TilemapSize,
         &TilemapGridSize,
@@ -269,6 +270,7 @@ pub fn tile_click(
         &Transform,
     )>,
     mut add_edit_action: EventWriter<EditEvent>,
+    stack: Res<ActionStack>,
     brush: Res<RogBrush>,
 ) {
     let window = windows.single();
@@ -278,29 +280,73 @@ pub fn tile_click(
         return;
     }
 
-    if let Some(world_position) = window
+    let world_position = get_some!(window
         .cursor_position()
-        .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor))
-    {
-        let cursor_pos = world_position.extend(1.0);
-        for (size, grid_size, map_type, storage, transform) in tilemap_q.iter() {
-            let cursor_in_map_pos: Vec2 = {
-                let cursor_pos = Vec4::from((cursor_pos, 1.0));
-                let cursor_in_map_pos = transform.compute_matrix().inverse() * cursor_pos;
-                cursor_in_map_pos.xyz()
-            }
-            .truncate();
+        .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor)));
 
-            if let Some(tile_pos) =
-                TilePos::from_world_pos(&cursor_in_map_pos, size, grid_size, map_type)
-            {
-                add_edit_action.send(EditEvent(vec![EditAction::PlaceTile {
+    let cursor_pos = world_position.extend(1.0);
+
+    // Do this for each tilemap. Might have more in the future (like a minimap)
+    for (size, grid_size, map_type, storage, transform) in tilemap_q.iter() {
+        let cursor_in_map_pos: Vec2 = {
+            let cursor_pos = Vec4::from((cursor_pos, 1.0));
+            let cursor_in_map_pos = transform.compute_matrix().inverse() * cursor_pos;
+            cursor_in_map_pos.xyz()
+        }
+        .truncate();
+
+        let tile_pos = get_some!(TilePos::from_world_pos(
+            &cursor_in_map_pos,
+            size,
+            grid_size,
+            map_type
+        ));
+
+        // Single tile placement
+        if !keyboard.pressed(KeyCode::ShiftLeft) {
+            add_edit_action.send(EditEvent(vec![EditAction::PlaceTile {
+                material: brush.material.clone(),
+                tile_pos,
+                size: brush.size,
+            }]));
+            return;
+        }
+
+        // Range tile placement. todo simplify
+        let ltile_pos = get_some!(stack.last_tilepos());
+
+        let mut actions = Vec::new();
+        let range_x = if ltile_pos.x <= tile_pos.x {
+            ltile_pos.x..=tile_pos.x
+        } else {
+            tile_pos.x..=ltile_pos.x
+        };
+        let range_y = if ltile_pos.y <= tile_pos.y {
+            ltile_pos.y..=tile_pos.y
+        } else {
+            tile_pos.y..=ltile_pos.y
+        };
+        if range_x.clone().count() > range_y.clone().count() {
+            for x in range_x {
+                let tile_pos = TilePos { x, y: tile_pos.y };
+                actions.push(EditAction::PlaceTile {
                     material: brush.material.clone(),
                     tile_pos,
                     size: brush.size,
-                }]))
+                });
+            }
+        } else {
+            for y in range_y.clone() {
+                let tile_pos = TilePos { x: tile_pos.x, y };
+                actions.push(EditAction::PlaceTile {
+                    material: brush.material.clone(),
+                    tile_pos,
+                    size: brush.size,
+                });
             }
         }
+
+        add_edit_action.send(EditEvent(actions));
     }
 }
 

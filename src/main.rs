@@ -26,6 +26,7 @@ use std::{env, process, time::Duration};
 mod config;
 mod editor;
 mod game;
+mod macros;
 mod main_menu;
 
 pub const SCREEN: Vec2 = Vec2::from_array([1024.0, 768.0]);
