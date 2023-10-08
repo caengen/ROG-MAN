@@ -305,6 +305,7 @@ pub fn tile_click(
         let ltile_pos = get_some!(stack.last_tilepos());
 
         let mut actions = Vec::new();
+        let mut should_rev = false;
         let range_x = if ltile_pos.x <= tile_pos.x {
             ltile_pos.x..=tile_pos.x
         } else {
@@ -324,6 +325,9 @@ pub fn tile_click(
                     size: brush.size,
                 });
             }
+            if ltile_pos.x > tile_pos.x {
+                actions.reverse();
+            }
         } else {
             for y in range_y.clone() {
                 let tile_pos = TilePos { x: tile_pos.x, y };
@@ -332,6 +336,9 @@ pub fn tile_click(
                     tile_pos,
                     size: brush.size,
                 });
+            }
+            if ltile_pos.y > tile_pos.y {
+                actions.reverse();
             }
         }
 
@@ -354,7 +361,7 @@ pub fn setup_blank_level(mut commands: Commands, images: Res<ImageAssets>) {
             let tile_pos = TilePos { x, y };
             let tile_entity = commands
                 .spawn((
-                    Name::new("Base Tilemap Tile"),
+                    Name::new("Tile"),
                     TileBundle {
                         position: tile_pos,
                         tilemap_id: TilemapId(tilemap_entity),
@@ -368,16 +375,19 @@ pub fn setup_blank_level(mut commands: Commands, images: Res<ImageAssets>) {
         }
     }
 
-    commands.entity(tilemap_entity).insert(TilemapBundle {
-        grid_size,
-        map_type,
-        size: map_size,
-        storage: tile_storage,
-        texture: TilemapTexture::Single(images.tilemap_image.clone()),
-        tile_size,
-        transform: get_tilemap_center_transform(&map_size, &grid_size, &map_type, 0.0),
-        ..Default::default()
-    });
+    commands.entity(tilemap_entity).insert((
+        Name::new("Tilemap"),
+        TilemapBundle {
+            grid_size,
+            map_type,
+            size: map_size,
+            storage: tile_storage,
+            texture: TilemapTexture::Single(images.tilemap_image.clone()),
+            tile_size,
+            transform: get_tilemap_center_transform(&map_size, &grid_size, &map_type, 0.0),
+            ..Default::default()
+        },
+    ));
 }
 
 pub fn teardown() {}

@@ -29,7 +29,7 @@ mod game;
 mod macros;
 mod main_menu;
 
-pub const SCREEN: Vec2 = Vec2::from_array([1024.0, 768.0]);
+pub const SCREEN: Vec2 = Vec2::from_array([640.0, 480.0]);
 pub const DARK: Color = Color::rgb(0.191, 0.184, 0.156);
 pub const LIGHT: Color = Color::rgb(0.852, 0.844, 0.816);
 
